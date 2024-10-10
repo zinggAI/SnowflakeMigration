@@ -37,13 +37,13 @@ Moving data stored in your stage from one environment to another and storing the
 
       Is the datasource a schema or a stage? Enter 'schema' or 'stage': schema
 
-      tables_datasource = input("Enter the source schema or stage name (e.g., abc.xyz or my_folder): TEST.PUBLIC
+      Enter the source schema or stage name (e.g., abc.xyz or my_folder): TEST.PUBLIC
 
    -  Enter the project name (to be used for staging and temporary storage): copydata
 
       Is the datasource a schema or a stage? Enter 'schema' or 'stage': stage
 
-      tables_datasource = input("Enter the source schema or stage name (e.g., abc.xyz or my_folder): data_folder            
+      Enter the source schema or stage name (e.g., abc.xyz or my_folder): data_folder            
 
 # References:
 
