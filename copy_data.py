@@ -1,6 +1,6 @@
 import export_data
 import import_data
-
+import snowflake.connector
 import configparser
 import pandas as pd
 from urllib.parse import urlparse
@@ -13,18 +13,25 @@ from snowflake.snowpark.dataframe_reader import *
 from snowflake.snowpark.functions import *
 from snowflake.connector.pandas_tools import write_pandas
 
-# Read connection parameters from the properties file
-config = configparser.ConfigParser()
-config.read("SnowflakeConn.properties")
-print("\n*********************")
 
-# Parse the URL to extract the account name
-source_url = config.get("Snowflake", "SOURCE_URL")
-parsed_source_url = urlparse(source_url)
-source_account = parsed_source_url.netloc.split('.')[0]
-dest_url = config.get("Snowflake", "DEST_URL")
-parsed_dest_url = urlparse(dest_url)
-dest_account = parsed_dest_url.netloc.split('.')[0]
+# Common function to set up Snowflake connection
+def setup_snowflake_connection(config, section):
+    url = config.get(section, "URL")
+    parsed_url = urlparse(url)
+    account = parsed_url.netloc.split('.')[0]
+    db = config.get(section, "DB")
+    schema = config.get(section, "SCHEMA")
+    
+    conn = snowflake.connector.connect(
+        user=config.get(section, "USER"),
+        password=config.get(section, "PASSWORD"),
+        account=account,
+        warehouse=config.get(section, "WAREHOUSE"),
+        database=db,
+        schema=schema
+    )
+    
+    return conn, db, schema
 
 # function to remove the staged data
 def remove_data_from_stage(conn, project_name, table):
@@ -34,7 +41,7 @@ def remove_data_from_stage(conn, project_name, table):
     print(f"Data removed from stage: @~/{project_name}/{table}\n")
 
 # function to get the list of tables
-def get_table_list(conn, stage_name):
+def get_table_list_stage(conn, stage_name):
     list_query = f"LIST @{stage_name};"
     tables = []
     with conn.cursor() as cursor:
@@ -43,30 +50,21 @@ def get_table_list(conn, stage_name):
         for row in rows:
             table_name = row[0].split('/')[-1].split('.')[0]  # Assuming table names are extractable from the path
             tables.append(table_name)
+    return tables   
+
+def get_table_list_schema(conn, schema_name):
+    list_query = f"SHOW TABLES IN SCHEMA {schema_name};"
+    tables = []
+    with conn.cursor() as cursor:
+        cursor.execute(list_query)
+        rows = cursor.fetchall()
+        for row in rows:
+            table_name = row[1]  # Assuming the second column holds the table name
+            tables.append(table_name)
     return tables    
 
-def main():
-    # Set up Snowflake connections for source and destination
-    source_conn = snowflake.connector.connect(
-        user= config.get("Snowflake", "SOURCE_USER"),
-        password= config.get("Snowflake", "SOURCE_PASSWORD"),
-        account= source_account,
-        warehouse= config.get("Snowflake", "SOURCE_WAREHOUSE"),
-        database= config.get("Snowflake", "SOURCE_DB"),
-        schema= config.get("Snowflake", "SOURCE_SCHEMA")
-    )
+def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_SCHEMA,  project_name, datasource, tables_datasource):
     
-    destination_conn = snowflake.connector.connect(
-        user= config.get("Snowflake", "DEST_USER"),
-        password= config.get("Snowflake", "DEST_PASSWORD"),
-        account= dest_account,
-        warehouse= config.get("Snowflake", "DEST_WAREHOUSE"),
-        database= config.get("Snowflake", "DEST_DB"),
-        schema= config.get("Snowflake", "DEST_SCHEMA")
-    )
-    
-    project_name = "copy_table"
-
     try:
         # Create a temporary folder for storing data and DDL files
         tmp_folder = tempfile.mkdtemp(prefix='copy_table.')
@@ -75,8 +73,11 @@ def main():
         os.makedirs(data_folder)
         os.makedirs(ddl_folder)
 
-        # Get the list of tables to copy from the stage
-        table_list = get_table_list(source_conn, STAGE_NAME)
+        # Get the list of tables to copy from the schema or stage
+        if datasource.lower() == "schema":
+            table_list = get_table_list_schema(source_conn, tables_datasource)
+        else:
+            table_list = get_table_list_stage(source_conn, tables_datasource)
         
         # Loop through each table and perform the copy process
         for table in table_list:
@@ -89,15 +90,15 @@ def main():
             # Modify the DDL to fit the destination table
             import_data.modify_ddl_for_destination(ddl_file_path, table, DEST_DB, DEST_SCHEMA, table)
 
-            # Export data from source
-            export_data.copy_data_to_stage(source_conn, project_name, table, SOURCE_DB, SOURCE_SCHEMA)
-            export_data.get_data_from_stage(source_conn, project_name, table, data_folder)
-
             # Apply the modified DDL in the destination
             with open(ddl_file_path, 'r') as ddl_file:
                 ddl_query = ddl_file.read()
             with destination_conn.cursor() as cursor:
                 cursor.execute(ddl_query)
+
+            # Export data from source
+            export_data.copy_data_to_stage(source_conn, project_name, table, SOURCE_DB, SOURCE_SCHEMA)
+            export_data.get_data_from_stage(source_conn, project_name, table, data_folder)
 
             # Import data into destination
             import_data.put_data_to_stage(destination_conn, project_name, table, data_folder)
@@ -114,13 +115,17 @@ def main():
         os.system(f"rm -rf {tmp_folder}")
         print("Temporary files cleaned up\n")
 
-#INFO
-STAGE_NAME = 'ZINGG_STAGE' # stage from where you want to copy data
-SOURCE_DB = 'ZINGG'
-SOURCE_SCHEMA = 'PUBLIC'
-DEST_DB = 'ZINGG'
-DEST_SCHEMA = 'PUBLIC'
+# Get user inputs
+project_name = input("Enter the project name (to be used for staging and temporary storage): ")
+datasource = input("Is the datasource a schema or a stage? Enter 'schema' or 'stage': ").strip().lower()
+tables_datasource = input("Enter the source schema or stage name (e.g., abc.xyz or my_folder): ")
 
+# Load configuration
+config = configparser.ConfigParser()
+config.read("SnowflakeConnSource.properties")
+source_conn, SOURCE_DB, SOURCE_SCHEMA = setup_snowflake_connection(config, "Snowflake")
+config.read("SnowflakeConnDest.properties")
+destination_conn, DEST_DB, DEST_SCHEMA = setup_snowflake_connection(config, "Snowflake")
 
-if __name__ == "__main__":
-    main()
+# Working
+main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_SCHEMA, project_name, datasource, tables_datasource)
