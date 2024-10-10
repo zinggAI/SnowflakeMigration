@@ -23,13 +23,12 @@ Moving data stored in your stage from one environment to another and storing the
 
    pip install -r requirements.txt
 
--- If any package not installed correctly, install manually inside environment using `pip install <package-name>`
+-- If any package is not installed correctly, install manually inside environment using `pip install <package-name>`
 
 # Steps
 
 1. Update source environment and destination environment details in SnowflakeConnSource.properties and SnowflakeConnDest.properties
-2. Input details such as name of the project, data source, name of the data source.
-3. run 'python copy_data.py' to copy data from one Snowflake environment to another.
+2. run `python copy_data.py` to copy data from one Snowflake environment to another and input details such as the name of the project, data source (stage or schema), and name of the data source.
 
 # References:
 
