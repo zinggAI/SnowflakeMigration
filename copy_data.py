@@ -97,16 +97,18 @@ def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_
                 cursor.execute(ddl_query)
 
             # Export data from source
-            remove_data_from_stage(source_conn, project_name, table)
             export_data.copy_data_to_stage(source_conn, project_name, table, SOURCE_DB, SOURCE_SCHEMA)
             export_data.get_data_from_stage(source_conn, project_name, table, data_folder)
             remove_data_from_stage(source_conn, project_name, table)
 
             # Import data into destination
-            remove_data_from_stage(destination_conn, project_name, table)
             import_data.put_data_to_stage(destination_conn, project_name, table, data_folder)
             import_data.copy_data_from_stage(destination_conn, project_name, table, DEST_DB, DEST_SCHEMA)
             remove_data_from_stage(destination_conn, project_name, table)
+
+            # Clean up the local data files after each table
+            os.system(f"rm -rf {data_folder}/*")
+            print(f"Local data for table {table} cleaned up\n")
     
     finally:
         # Clean up and close connections
