@@ -12,10 +12,10 @@ from snowflake.connector.pandas_tools import write_pandas
 
 # function to upload data files to stage
 def put_data_to_stage(conn, project_name, destination_table, data_folder):
-    put_query = f"PUT file://{data_folder}/*.csv.gz @~/{project_name}/{destination_table}/"
+    put_query = f"PUT file://{data_folder}/*.csv.gz @~/{project_name}/{destination_table}"
     with conn.cursor() as cursor:
         cursor.execute(put_query)
-    print(f"Data files uploaded from {data_folder} to stage: @~/{project_name}/{destination_table}/\n")
+    print(f"Data files uploaded from {data_folder} to stage: @~/{project_name}/{destination_table}\n")
 
 # function to copy data from the stage to the Snowflake table
 def copy_data_from_stage(conn, project_name, destination_table, destination_database, destination_schema):

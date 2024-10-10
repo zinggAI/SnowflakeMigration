@@ -67,7 +67,7 @@ def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_
     
     try:
         # Create a temporary folder for storing data and DDL files
-        tmp_folder = tempfile.mkdtemp(prefix='copy_table.')
+        tmp_folder = tempfile.mkdtemp(prefix=f'{project_name}.')
         data_folder = os.path.join(tmp_folder, 'data')
         ddl_folder = os.path.join(tmp_folder, 'ddl')
         os.makedirs(data_folder)
@@ -83,8 +83,8 @@ def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_
         for table in table_list:
             print(f"Processing table: {table}\n")
 
-             # Fetch DDL for the source table
-            ddl_file_path = os.path.join(ddl_folder, 'ddl.sql')
+            # Fetch DDL for the source table
+            ddl_file_path = os.path.join(ddl_folder, f'{table}_ddl.sql')
             export_data.fetch_ddl_for_table(source_conn, SOURCE_DB, SOURCE_SCHEMA, table, ddl_file_path)
 
             # Modify the DDL to fit the destination table
@@ -97,15 +97,15 @@ def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_
                 cursor.execute(ddl_query)
 
             # Export data from source
+            remove_data_from_stage(source_conn, project_name, table)
             export_data.copy_data_to_stage(source_conn, project_name, table, SOURCE_DB, SOURCE_SCHEMA)
             export_data.get_data_from_stage(source_conn, project_name, table, data_folder)
+            remove_data_from_stage(source_conn, project_name, table)
 
             # Import data into destination
+            remove_data_from_stage(destination_conn, project_name, table)
             import_data.put_data_to_stage(destination_conn, project_name, table, data_folder)
             import_data.copy_data_from_stage(destination_conn, project_name, table, DEST_DB, DEST_SCHEMA)
-            
-            #removing data from stages
-            remove_data_from_stage(source_conn, project_name, table)
             remove_data_from_stage(destination_conn, project_name, table)
     
     finally:
