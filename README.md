@@ -43,7 +43,9 @@ Moving data stored in your stage from one environment to another and storing the
 
       Is the datasource a schema or a stage? Enter 'schema' or 'stage': stage
 
-      Enter the source schema or stage name (e.g., abc.xyz or my_folder): data_folder            
+      Enter the source schema or stage name (e.g., abc.xyz or my_folder): data_folder
+
+3. Error handling has also been included in case any table is empty, does not exist, or is not authorized so that changes can be made accordingly.
 
 # References:
 
