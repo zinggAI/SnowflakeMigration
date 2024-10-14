@@ -40,7 +40,7 @@ def remove_data_from_stage(conn, project_name, table):
         cursor.execute(remove_query)
     print(f"Data removed from stage: @~/{project_name}/{table}\n")
 
-# function to get the list of tables
+# function to get the list of tables in stage
 def get_table_list_stage(conn, stage_name):
     list_query = f"LIST @{stage_name};"
     tables = []
@@ -52,6 +52,7 @@ def get_table_list_stage(conn, stage_name):
             tables.append(table_name)
     return tables   
 
+# function to get the list of tables in schema
 def get_table_list_schema(conn, schema_name):
     list_query = f"SHOW TABLES IN SCHEMA {schema_name};"
     tables = []
@@ -61,7 +62,15 @@ def get_table_list_schema(conn, schema_name):
         for row in rows:
             table_name = row[1]  # Assuming the second column holds the table name
             tables.append(table_name)
-    return tables    
+    return tables 
+
+# function to check if the table is empty
+def check_if_table_is_empty(conn, source_database, source_schema, source_table):
+    query = f"SELECT COUNT(*) FROM {source_database}.{source_schema}.{source_table};"
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        row_count = cursor.fetchone()[0]
+        return row_count == 0   
 
 def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_SCHEMA,  project_name, datasource, tables_datasource):
     
@@ -83,6 +92,15 @@ def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_
         for table in table_list:
             print(f"Processing table: {table}\n")
 
+            # Check if the table exists and is not empty
+            try:
+                if check_if_table_is_empty(source_conn, SOURCE_DB, SOURCE_SCHEMA, table):
+                    print(f"Table {table} is empty. Skipping {table}")
+                    continue
+            except Exception as e:
+                print(f"Error checking table {table}: {e}")
+                continue
+
             # Fetch DDL for the source table
             ddl_file_path = os.path.join(ddl_folder, f'{table}_ddl.sql')
             export_data.fetch_ddl_for_table(source_conn, SOURCE_DB, SOURCE_SCHEMA, table, ddl_file_path)
@@ -97,9 +115,13 @@ def main(source_conn, destination_conn, SOURCE_DB, SOURCE_SCHEMA, DEST_DB, DEST_
                 cursor.execute(ddl_query)
 
             # Export data from source
-            export_data.copy_data_to_stage(source_conn, project_name, table, SOURCE_DB, SOURCE_SCHEMA)
-            export_data.get_data_from_stage(source_conn, project_name, table, data_folder)
-            remove_data_from_stage(source_conn, project_name, table)
+            try:
+                export_data.copy_data_to_stage(source_conn, project_name, table, SOURCE_DB, SOURCE_SCHEMA)
+                export_data.get_data_from_stage(source_conn, project_name, table, data_folder)
+                remove_data_from_stage(source_conn, project_name, table)
+            except Exception as e:
+                print(f"Error exporting data for table {table}: {e}")
+                continue    
 
             # Import data into destination
             import_data.put_data_to_stage(destination_conn, project_name, table, data_folder)

@@ -28,7 +28,24 @@ Moving data stored in your stage from one environment to another and storing the
 # Steps
 
 1. Update source environment and destination environment details in SnowflakeConnSource.properties and SnowflakeConnDest.properties
+
 2. run `python copy_data.py` to copy data from one Snowflake environment to another and input details such as the name of the project, data source (stage or schema), and name of the data source.
+
+   To copy data from one Snowflake environment to the other, you must enter the following details. Here are a few examples:
+
+   -  Enter the project name (to be used for staging and temporary storage): movedata
+
+      Is the datasource a schema or a stage? Enter 'schema' or 'stage': schema
+
+      Enter the source schema or stage name (e.g., abc.xyz or my_folder): TEST.PUBLIC
+
+   -  Enter the project name (to be used for staging and temporary storage): copydata
+
+      Is the datasource a schema or a stage? Enter 'schema' or 'stage': stage
+
+      Enter the source schema or stage name (e.g., abc.xyz or my_folder): data_folder
+
+3. Error handling has also been included in case any table is empty, does not exist, or is not authorized so that changes can be made accordingly.
 
 # References:
 
