@@ -1,4 +1,4 @@
-# SnowflakeMigration
+# Snowflake Migration
 Moving data stored in your stage from one environment to another and storing them locally in the process
 
 # Prerequisites
