@@ -1,5 +1,5 @@
 # Snowflake Migration
-Moving data stored in Snowflake stage from one environment to another while storing them locally in the process
+Moving data stored in Snowflake stage from one environment to another while storing them locally in the process. Built with love by the [Zingg AI](www.zingg.ai) team. 
 
 # Prerequisites
 
